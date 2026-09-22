@@ -12,7 +12,7 @@ PRICE_DATE = '2026-09-22'
 USD_PER_SECOND = 0.12  # gen4.5: 12 credits/s, $0.01/credit; estimate, before tax.
 
 
-def validate_plan(data, expected_count=None):
+def validate_plan(data, expected_count=None, narration_word_limit=13):
     if not isinstance(data, dict):
         raise ValueError('Der Szenenplan muss ein Objekt sein.')
     scenes = data.get('scenes')
@@ -32,8 +32,8 @@ def validate_plan(data, expected_count=None):
         duration = scene.get('duration', 5)
         if type(duration) is not int or duration != 5:
             raise ValueError('Diese Version verwendet 5 Sekunden pro generierter Szene.')
-        if not narration or len(narration.split()) > 10 or len(narration) > 180:
-            raise ValueError('Pro Szene 1 bis 10 Sprecherwörter verwenden.')
+        if not narration or len(narration.split()) > narration_word_limit or len(narration) > 180:
+            raise ValueError(f'Pro Szene 1 bis {narration_word_limit} Sprecherwörter verwenden.')
         if not visual or len(visual.encode('utf-16-le')) // 2 > 1000:
             raise ValueError('Bildbeschreibung fehlt oder überschreitet 1.000 Zeichen.')
         clean['scenes'].append({'duration': 5, 'narration': narration, 'visual': visual})
@@ -106,7 +106,7 @@ def plan_local(ai, model, topic, audience, tone, count):
     validation_error = None
     if data is not None:
         try:
-            return validate_plan(data, count)
+            return validate_plan(data, count, narration_word_limit=10)
         except ValueError as exc:
             validation_error = str(exc)
 
@@ -132,7 +132,7 @@ def plan_local(ai, model, topic, audience, tone, count):
             'Die lokale KI lieferte trotz Wiederholung keinen gültigen Szenenplan. '
             'Bitte Ollama aktualisieren oder ein anderes lokales Modell auswählen.'
         )
-    return validate_plan(data, count)
+    return validate_plan(data, count, narration_word_limit=10)
 
 
 class Projects:
@@ -165,7 +165,7 @@ class Projects:
             db.close()
 
     def create(self, plan):
-        plan = validate_plan(plan)
+        plan = validate_plan(plan, narration_word_limit=10)
         ident = uuid.uuid4().hex
         db = self.connect()
         try:
@@ -190,7 +190,7 @@ class Projects:
         return validate_plan(json.loads(rows[0]['plan']))
 
     def save(self, ident, plan):
-        plan = validate_plan(plan)
+        plan = validate_plan(plan, narration_word_limit=10)
         if len(plan['scenes']) != len(self.load(ident)['scenes']):
             raise ValueError('Für eine andere Szenenzahl bitte ein neues Projekt anlegen.')
         db = self.connect()
