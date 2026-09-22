@@ -32,8 +32,8 @@ def validate_plan(data, expected_count=None):
         duration = scene.get('duration', 5)
         if type(duration) is not int or duration != 5:
             raise ValueError('Diese Version verwendet 5 Sekunden pro generierter Szene.')
-        if not narration or len(narration.split()) > 13 or len(narration) > 180:
-            raise ValueError('Pro Szene 1 bis 13 Sprecherwörter verwenden.')
+        if not narration or len(narration.split()) > 10 or len(narration) > 180:
+            raise ValueError('Pro Szene 1 bis 10 Sprecherwörter verwenden.')
         if not visual or len(visual.encode('utf-16-le')) // 2 > 1000:
             raise ValueError('Bildbeschreibung fehlt oder überschreitet 1.000 Zeichen.')
         clean['scenes'].append({'duration': 5, 'narration': narration, 'visual': visual})
@@ -77,7 +77,7 @@ def plan_local(ai, model, topic, audience, tone, count):
     instructions = (
         'Create a German short-video storyboard. Return ONLY one valid JSON object with title, caption and scenes. '
         'Do not use Markdown or code fences. scenes is an array; each scene has duration (always integer 5), '
-        'narration (German, maximum 13 words) and visual (a detailed English video prompt, maximum 800 characters). '
+        'narration (German, maximum 10 words) and visual (a detailed English video prompt, maximum 800 characters). '
         'Use exactly the requested scene count. First scene is a strong hook; last is a natural conclusion. '
         'Visual prompts describe camera, action, lighting and a consistent style. '
         'Do not put captions or text into the generated visuals. '
@@ -103,18 +103,29 @@ def plan_local(ai, model, topic, audience, tone, count):
 
     result = ai.request('/api/chat', payload, timeout=300)
     data = _parse_json_message(result)
+    validation_error = None
+    if data is not None:
+        try:
+            return validate_plan(data, count)
+        except ValueError as exc:
+            validation_error = str(exc)
 
-    if data is None:
-        retry_payload = dict(payload)
-        retry_payload['messages'] = [
-            {'role': 'system', 'content': instructions},
-            {'role': 'user', 'content': brief},
-            {'role': 'user', 'content': 'Return the storyboard now as one compact valid JSON object only.'}
-        ]
-        retry_payload['options'] = dict(payload['options'])
-        retry_payload['options']['temperature'] = 0.0
-        result = ai.request('/api/chat', retry_payload, timeout=300)
-        data = _parse_json_message(result)
+    retry_payload = dict(payload)
+    correction = (
+        'Return the storyboard now as one compact valid JSON object only. '
+        'Every narration must contain at most 10 words and every duration must be exactly 5.'
+    )
+    if validation_error:
+        correction += ' Fix this validation error: ' + validation_error
+    retry_payload['messages'] = [
+        {'role': 'system', 'content': instructions},
+        {'role': 'user', 'content': brief},
+        {'role': 'user', 'content': correction}
+    ]
+    retry_payload['options'] = dict(payload['options'])
+    retry_payload['options']['temperature'] = 0.0
+    result = ai.request('/api/chat', retry_payload, timeout=300)
+    data = _parse_json_message(result)
 
     if data is None:
         raise ValueError(
