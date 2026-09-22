@@ -23,3 +23,12 @@ VoterInfo.json
 myinfo\.csv
 .vscode
 agenda.csv
+
+# JARVIS Control Center runtime (never commit credentials or user content)
+.jarvis-data/
+.venv-control/
+__pycache__/
+.pytest_cache/
+.env
+.env.*
+!.env.example
