@@ -1,0 +1,2 @@
+-r requirements-control.txt
+MetaTrader5==5.0.6180; sys_platform == 'win32'

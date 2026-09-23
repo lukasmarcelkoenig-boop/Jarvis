@@ -14,6 +14,17 @@ class ServerTests(unittest.TestCase):
     def tearDown(self):self.c.close();self.tmp.cleanup()
     def login(self):return self.c.post('/api/login',json={'token':self.s.token_file.read_text()})
     def job(self,**p):return self.c.post('/api/jobs',json=p)
+    def test_trading_api_auth_config_and_demo_consent(self):
+        self.assertEqual(self.c.get('/api/trading').status_code,401)
+        self.login()
+        self.assertEqual(self.c.get('/api/trading').status_code,200)
+        self.assertEqual(self.c.post('/api/trading/start',json={'demo_consent':False}).status_code,400)
+        self.assertEqual(self.c.post('/api/trading/configure',json={'risk_pct':100}).status_code,400)
+        self.assertEqual(self.c.post('/api/trading/research-config',json={'enabled':True,'summarize':False,'minutes':1}).status_code,400)
+        self.assertEqual(self.c.post('/api/trading/research-config',json={'enabled':True,'summarize':False,'minutes':30}).status_code,200)
+        self.assertEqual(self.c.get('/api/trading').json()['research_config']['minutes'],30)
+        self.assertFalse(self.app.state.engine.trading.armed)
+
     def test_auth_and_logout(self):
         self.assertEqual(self.c.get('/api/state').status_code,401)
         self.assertEqual(self.login().status_code,200)

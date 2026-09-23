@@ -1,4 +1,12 @@
-# JARVIS 2.0 · Dein persönliches Control Center
+# JARVIS 2.1 · Trading Brain für Gold und Bitcoin
+
+**Neu: MT5-Demo-Agent für XAUUSD und BTCUSD mit Handelsgedächtnis und stündlicher Quellenrecherche.**
+
+[Trading-Einrichtung und Funktionsgrenzen](docs/control-center/TRADING.md)
+
+Vorhandene Installation: JARVIS beenden, `git pull --ff-only origin jarvis-2.0-development`, dann `EINRICHTEN_TRADING.bat` und `START_JARVIS.bat`. MT5 im separaten Demokonto öffnen und im neuen Trading Brain verbinden. Erst eine ausdrückliche Demo-Freigabe startet automatische Orders. Echtgeldkonten bleiben gesperrt.
+
+Die Recherche läuft bei eingeschaltetem PC/JARVIS regelmäßig über Fed, EZB und Bitcoin Core. Das lokale Modell erstellt Briefings und wertet das Journal aus; es trainiert sich nicht selbst und besitzt keinen Orderzugriff. Die erste EMA/ATR-Strategie ist experimentell und nicht als profitabel nachgewiesen.
 
 Ein gemeinsamer Workspace für Windows-PC und Smartphone: lokale KI, Content Studio, Aufgaben, Gedächtnis, freigegebene Aktionen und verbundene Dienste.
 

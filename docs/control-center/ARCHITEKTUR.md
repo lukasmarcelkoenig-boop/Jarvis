@@ -1,3 +1,7 @@
+# Erweiterung 2.1
+
+Trading-/Research-Architektur und neue Grenzen: [TRADING.md](TRADING.md). `trading/service.py` verwaltet den separaten Demo-Worker, `mt5_gateway.py` den Demokonto-Zugriff, `strategy.py` die feste Signal-/Backtest-Logik und `research.py` den separaten Recherche-Worker. Die folgende Dokumentation beschreibt zusätzlich die weiterbestehende 2.0-Basis.
+
 # Architektur und Prüfstand
 
 ## Aufbau

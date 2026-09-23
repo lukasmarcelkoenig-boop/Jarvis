@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from .state import State
 from .engine import Engine
+from .trading.research import SOURCES,LEARNING
 
 
 def create_app(root=None, worker=True):
@@ -22,6 +23,9 @@ def create_app(root=None, worker=True):
         if worker:engine.start()
         yield
         engine.stop.set()
+        engine.trading.armed=False
+        engine.trading.stop.set()
+        engine.research.stop.set()
         if engine.thread:engine.thread.join(timeout=3)
     app=FastAPI(lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url=None)
     app.state.store=state;app.state.engine=engine
@@ -71,11 +75,36 @@ def create_app(root=None, worker=True):
         for r in engine.projects.query('SELECT id,created FROM projects ORDER BY created DESC LIMIT 40'):
             ident=r['id'];projects.append(r|{'plan':engine.projects.load(ident),'estimate':engine.projects.estimate(ident),'scenes':engine.projects.states(ident),
                 'preview':(engine.projects.folder(ident)/'vorschau'/'final.mp4').exists(),'export':(engine.projects.folder(ident)/'export'/'final.mp4').exists()})
-        return {'version':'2.0.0-dev.1','jobs':state.jobs(),'projects':projects,
+        return {'version':'2.1.0-trading-demo','jobs':state.jobs(),'projects':projects,
             'records':{kind:state.records(kind) for kind in ('chat','task','memory','plan','account','bot','notification')},
             'settings':{k:state.get(k,v) for k,v in {'model':'qwen2.5:3b','cloud_model':'gpt-4.1-mini','cloud_daily_limit':10,'public_url':''}.items()},
             'connected':{k:bool(state.secret(k)) for k in ('openai','runway')},'windows':os.name=='nt',
             'bots':{k:p.poll() is None for k,p in engine.processes.items()}}
+
+    @app.get('/api/trading')
+    def trading_status():
+        articles=state.records('research',30)
+        for item in articles:
+            item['old']=item.get('published') is not None and time.time()-item['published']>7*86400
+        return engine.trading.snapshot()|{'research_config':state.get('research_config',{'enabled':True,'minutes':60,'summarize':True}),
+            'research_status':state.get('research_status',{}),'research':articles,'briefings':state.records('research_brief',5),
+            'reviews':state.records('trading_review',10),'backtests':state.records('trading_backtest',6),'sources':SOURCES,'learning':LEARNING}
+
+    @app.post('/api/trading/{action}')
+    def trading_action(action:str,p:dict):
+        if action=='configure':return engine.trading.configure(p)
+        if action=='connect':return engine.trading.connect()
+        if action=='start':engine.trading.arm(p.get('demo_consent'))
+        elif action=='pause':engine.trading.pause()
+        elif action=='acknowledge':engine.trading.acknowledge(p)
+        elif action=='research-now':engine.research.wake.set()
+        elif action=='research-config':
+            minutes=int(p.get('minutes',60))
+            if not 15<=minutes<=1440:raise ValueError('Rechercheintervall: 15 bis 1440 Minuten.')
+            if type(p.get('enabled')) is not bool or type(p.get('summarize')) is not bool:raise ValueError('Rechercheoptionen ungültig.')
+            state.set('research_config',{'enabled':p['enabled'],'summarize':p['summarize'],'minutes':minutes})
+        else:raise ValueError('Unbekannte Trading-Aktion.')
+        return {'ok':True}
 
     @app.get('/api/models')
     def models():
@@ -137,7 +166,13 @@ def create_app(root=None, worker=True):
     @app.post('/api/jobs')
     def propose(p:dict):
         kind=p.get('kind');body={};immediate=False
-        if kind in ('chat','plan','script'):
+        if kind in ('trading.backtest','trading.review'):
+            immediate=True
+            if kind=='trading.backtest':
+                symbol=required(p,'symbol',64)
+                if symbol not in (engine.trading.config()['gold'],engine.trading.config()['bitcoin']):raise ValueError('Unbekanntes Symbol.')
+                body={'symbol':symbol}
+        elif kind in ('chat','plan','script'):
             immediate=True
             if kind=='chat':
                 provider=p.get('provider','local')

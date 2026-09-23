@@ -13,6 +13,8 @@ from .core.runway import Runway
 from .core.media import render
 from .connectors import Connectors
 from .browser import inspect_page
+from .trading.service import Trading
+from .trading.research import Research
 
 
 class Engine:
@@ -21,9 +23,13 @@ class Engine:
         self.connectors=Connectors(state,self.projects)
         self.stop=threading.Event();self.thread=None
         self.processes={}
+        self.trading=Trading(state)
+        self.research=Research(state,self.ai)
 
     def start(self):
         self.state.recover()
+        self.trading.start_thread()
+        self.research.start()
         self.thread=threading.Thread(target=self.loop,daemon=True);self.thread.start()
 
     def loop(self):
@@ -44,7 +50,7 @@ class Engine:
     def chat(self,p):
         history=list(reversed(self.state.records('chat',8)))
         text=p['text'];provider=p.get('provider','local')
-        context=json.dumps({'memory':self.state.records('memory',20),'tasks':self.state.records('task',15)},ensure_ascii=False)[:10000]
+        context=json.dumps({'memory':self.state.records('memory',20),'tasks':self.state.records('task',10),'trading_brain':self.trading.context()},ensure_ascii=False)[:10000]
         if provider=='openai':
             key=self.state.secret('openai')
             if not key:raise ValueError('OpenAI-API-Schlüssel fehlt.')
@@ -57,7 +63,7 @@ class Engine:
             with httpx.Client(timeout=180,trust_env=False) as client:
                 r=client.post('https://api.openai.com/v1/responses',headers={'Authorization':'Bearer '+key},json={
                     'model':model,'store':False,'max_output_tokens':1200,
-                    'instructions':'Du bist JARVIS. Antworte auf Deutsch. Du hast in diesem Chat keine ausführbaren Tools. Behaupte keine ausgeführten Aktionen. Verweise auf Studio, Werkzeuge und Freigaben. Kontextdaten: '+context,
+                    'instructions':'Du bist JARVIS Trading Brain für Gold/XAUUSD und Bitcoin/BTCUSD. Trenne belegte Marktdaten, Hypothesen und fehlende Daten. Nenne Datenzeitpunkte. Keine erfundenen Kurse oder Erfolgsquoten. Antworte auf Deutsch. Du hast in diesem Chat keine ausführbaren Tools. Behaupte keine ausgeführten Aktionen. Verweise auf Studio, Werkzeuge und Freigaben. Kontextdaten: '+context,
                     'input':messages})
             if r.status_code>=400:raise RuntimeError('OpenAI HTTP '+str(r.status_code)+': API-Guthaben, Schlüssel und Modell prüfen.')
             result=r.json();answer='\n'.join(t.get('text','') for o in result.get('output',[]) for t in o.get('content',[]) if t.get('type')=='output_text')
@@ -71,6 +77,11 @@ class Engine:
     def execute(self,job):
         p=job['payload'];kind=job['kind'];ident=job['id']
         if kind=='chat':return self.chat(p)
+        if kind=='trading.backtest':return self.trading.run_backtest(p['symbol'])
+        if kind=='trading.review':
+            answer=self.ai.chat(self.state.get('model','qwen2.5:3b'),[],json.dumps(self.trading.context(),ensure_ascii=False)[:16000],
+                'Analysiere die gespeicherten Demo-Entscheidungen und Broker-Deals. Trenne Beobachtungen von Vermutungen. Beachte Teilfüllungen und Gebühren; erfinde keine vollständige Trefferquote. Nenne Datenlücken und höchstens drei testbare Lernhypothesen. Keine Regeländerungen oder Orders ausführen.')
+            self.state.add('trading_review',{'text':answer,'model':self.state.get('model','qwen2.5:3b')});return answer
         if kind=='plan':
             answer=self.ai.chat(self.state.get('model','qwen2.5:3b'),[], '',
                 'Erstelle einen konkreten Arbeitsplan auf Deutsch. Markiere externe Aktionen als Freigabe erforderlich. Ziel: '+p['goal'])

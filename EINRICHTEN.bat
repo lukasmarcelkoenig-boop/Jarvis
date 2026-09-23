@@ -11,7 +11,7 @@ if errorlevel 1 (
 )
 py -3.12 -m venv .venv-control
 if errorlevel 1 goto failed
-.venv-control\Scripts\python.exe -m pip install -r requirements-control.txt
+.venv-control\Scripts\python.exe -m pip install -r requirements-trading.txt
 if errorlevel 1 goto failed
 .venv-control\Scripts\python.exe -m playwright install chromium
 if errorlevel 1 (
