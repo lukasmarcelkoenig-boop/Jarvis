@@ -22,7 +22,11 @@ jobs:
           python -m pip install -r requirements-control.txt -r requirements-stream.txt
       - name: Compile JARVIS modules
         run: python -m compileall -q jarvis_control
-      - name: Stream Director unit tests
-        run: python -m unittest -v jarvis_control.tests.test_stream_director
+      - name: Validate JavaScript syntax
+        run: |
+          node --check jarvis_control/static/stream.js
+          node --check jarvis_control/static/app.js
+      - name: Stream Director unit and API tests
+        run: python -m unittest -v jarvis_control.tests.test_stream_director jarvis_control.tests.test_stream_api
       - name: Existing JARVIS tests
         run: python -m unittest discover -s jarvis_control/tests -p "test_*.py"
