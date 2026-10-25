@@ -1,6 +1,8 @@
-# JARVIS 2.1 · Trading Brain für Gold und Bitcoin
+# JARVIS 2.2 · Trading Brain + Stream Director
 
-**Neu: MT5-Demo-Agent für XAUUSD und BTCUSD mit Handelsgedächtnis und stündlicher Quellenrecherche.**
+**Neu im Feature-Branch:** Stream Director für HOLLESTAR – OBS-Replay-Überwachung, akustische Highlight-Erkennung, Twitch-Chat-Signale, automatische 9:16-Shorts und explizit aktivierbare YouTube-Uploads. Aktuelle Einschränkungen und Installation: [Stream-Director-Anleitung](docs/control-center/STREAM_DIRECTOR.md).
+
+Weiterhin enthalten: MT5-Demo-Agent für XAUUSD und BTCUSD mit Handelsgedächtnis und stündlicher Quellenrecherche.
 
 [Trading-Einrichtung und Funktionsgrenzen](docs/control-center/TRADING.md)
 
@@ -10,7 +12,7 @@ Die Recherche läuft bei eingeschaltetem PC/JARVIS regelmäßig über Fed, EZB u
 
 Ein gemeinsamer Workspace für Windows-PC und Smartphone: lokale KI, Content Studio, Aufgaben, Gedächtnis, freigegebene Aktionen und verbundene Dienste.
 
-**Entwicklungsbranch:** `jarvis-2.0-development` · **Start:** `EINRICHTEN.bat`, danach `START_JARVIS.bat`.
+**Basisbranch:** `jarvis-2.0-development` · **Stream-Director-Feature:** `feature/stream-director-2026` · **Start:** `EINRICHTEN.bat`, danach `START_JARVIS.bat`.
 
 [Einrichtung für PC und Handy](docs/control-center/EINRICHTUNG.md) · [Architektur und Prüfstand](docs/control-center/ARCHITEKTUR.md) · [Ursprünglicher Jarvis-CLI](docs/control-center/LEGACY_README.md)
 

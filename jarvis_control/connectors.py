@@ -1,6 +1,7 @@
 """Official outbound adapters. Invoked only by approved, immutable jobs."""
 import json
 import re
+from pathlib import Path
 import smtplib
 import ssl
 import time
@@ -37,7 +38,13 @@ class Connectors:
         return account
 
     def video(self,project):
-        path=self.projects.folder(project)/'export'/'final.mp4'
+        if re.fullmatch(r'[0-9a-f]{24}', project):
+            self.state.record('streamclip',project)
+            config=self.state.get('stream_config',{})
+            root=Path(config.get('output_dir') or self.state.root/'stream-director').expanduser().resolve()
+            path=root/'shorts'/project/'final.mp4'
+        else:
+            path=self.projects.folder(project)/'export'/'final.mp4'
         if not path.is_file():raise ValueError('Zuerst ein fertiges Video exportieren.')
         if path.stat().st_size>50_000_000:raise ValueError('Diese Ausbaustufe unterstützt Uploads bis 50 MB.')
         return path
@@ -75,7 +82,7 @@ class Connectors:
                 headers=headers|{'X-Upload-Content-Length':str(file.stat().st_size),'X-Upload-Content-Type':'video/mp4'},
                 json={'snippet':{'title':p['title'][:100],'description':p['caption'][:5000]},
                       'status':{'privacyStatus':p['privacy'],'selfDeclaredMadeForKids':bool(p.get('made_for_kids',False)),
-                                'containsSyntheticMedia':True}})
+                                'containsSyntheticMedia':bool(len(p['project'])!=24)}})
             upload=allowed_upload(result.headers['Location'],['googleapis.com'])
             self.state.set('upload:'+job,{'platform':'youtube','url':upload})
             with file.open('rb') as f:

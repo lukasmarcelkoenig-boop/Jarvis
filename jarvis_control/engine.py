@@ -15,6 +15,7 @@ from .connectors import Connectors
 from .browser import inspect_page
 from .trading.service import Trading
 from .trading.research import Research
+from .stream_director import StreamDirector
 
 
 class Engine:
@@ -25,11 +26,13 @@ class Engine:
         self.processes={}
         self.trading=Trading(state)
         self.research=Research(state,self.ai)
+        self.stream=StreamDirector(state)
 
     def start(self):
         self.state.recover()
         self.trading.start_thread()
         self.research.start()
+        if self.stream.config()['enabled']:self.stream.start()
         self.thread=threading.Thread(target=self.loop,daemon=True);self.thread.start()
 
     def loop(self):
@@ -42,6 +45,9 @@ class Engine:
             except Exception as exc:
                 # Outbound jobs are never auto-retried, including after restart.
                 status='review' if job['kind'] in ('publish','message','generate') else 'failed'
+                if job['kind']=='publish' and len(job['payload'].get('project',''))==24:
+                    try:self.stream.update(job['payload']['project'],status='upload_review',error=str(exc)[:400])
+                    except ValueError:pass
                 self.state.finish(job['id'],status,str(exc))
 
     def notify(self,job,text):
@@ -106,7 +112,9 @@ class Engine:
             if kind=='publish':
                 video=self.connectors.video(p['project'])
                 if hashlib.sha256(video.read_bytes()).hexdigest()!=p['video_hash']:raise ValueError('Video nach Freigabe verändert.')
-                return self.connectors.publish(p,ident)
+                result=self.connectors.publish(p,ident)
+                if len(p['project'])==24:self.stream.update(p['project'],status='uploaded')
+                return result
             return self.connectors.send_message(p)
         if kind=='web':
             folder=self.state.root/'screenshots';folder.mkdir(exist_ok=True)
