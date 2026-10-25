@@ -50,7 +50,8 @@
           number('min_score','Highlight-Mindestscore (30–100)',c.min_score,30,100)+
           number('max_shorts','Maximale Shorts pro Stream',c.max_shorts,1,20)+
           '<label>Videoauflösung<select name="resolution">'+opts([[720,'720 × 1280 (geringere PC-Last)'],[1080,'1080 × 1920 (Full HD)']],c.resolution)+'</select></label>'+
-          '<label class="check"><input type="checkbox" name="keep_obs_replays" '+(c.keep_obs_replays?'checked':'')+'>OBS-Originale unverändert behalten</label>'+
+          '<label class="check"><input type="checkbox" name="keep_obs_replays" '+(c.keep_obs_replays?'checked':'')+'>OBS-Originale unverändert behalten</label>'+ 
+          '<label class="check"><input type="checkbox" name="captions" '+(c.captions?'checked':'')+'>Optionale lokale Whisper-Untertitel (nach Einrichtung)</label>'+ 
           '<hr><h3>Optionaler automatischer YouTube-Upload</h3>'+
           '<label>YouTube-Konto<select name="publish_account">'+opts(accountOpts,c.publish_account)+'</select></label>'+
           '<label>Uploads als<select name="publish_privacy">'+opts([['private','Privat'],['unlisted','Nicht gelistet'],['public','Öffentlich']],c.publish_privacy)+'</select></label>'+
@@ -67,11 +68,12 @@
         '</div></div>'+
         '<div class="card"><div class="row between"><h3>Deine Shorts</h3><span class="badge">'+h(clips.length)+' Clips</span></div>'+
         (clips.length?'<div class="stream-clips">'+clips.map(clip=>{
-          const ready=['ready','uploaded','upload_queued','upload_review'].includes(clip.status);
+          const ready=['ready','uploaded','upload_queued','upload_review','caption_review'].includes(clip.status);
           return '<article class="item"><div class="row between"><strong>'+h(clip.title || 'Gaming Highlight')+'</strong>'+
             '<span class="badge '+(clip.status==='failed'?'warn':'')+'">'+h(clip.status)+'</span></div>'+
             '<small>Highlight-Score: '+h(clip.score)+'/100 · '+h(clip.game||'Gaming')+'</small>'+
             (clip.error?'<p>'+h(clip.error)+'</p>':'')+
+            (clip.caption_error?'<p class="stream-alert">Untertitel: '+h(clip.caption_error)+'</p>':'')+
             (ready?'<video controls preload="none" src="/api/stream/clips/'+h(clip.id)+'/video"></video>'+
               '<p><a download="HOLLESTAR_'+h(clip.id)+'.mp4" href="/api/stream/clips/'+h(clip.id)+'/video">MP4 öffnen / speichern</a></p>':'')+
             '</article>';
@@ -102,6 +104,7 @@
       for(const key of ['obs_port','capture_interval','short_seconds','min_score','max_shorts','resolution'])
         p[key] = Number(p[key]);
       p.keep_obs_replays = !!form.elements.keep_obs_replays.checked;
+      p.captions = !!form.elements.captions.checked;
       await call('configure',p);
     });
   }, true);
