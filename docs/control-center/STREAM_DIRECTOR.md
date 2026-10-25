@@ -1,31 +1,31 @@
 # JARVIS Stream Director – Installieren & Grenzen
 
-Entwicklungszweig: \`feature/stream-director-2026\`. Bestehende Trading-/Content-Funktionen werden nicht ersetzt.
+Entwicklungszweig: `feature/stream-director-2026`. Bestehende Trading-/Content-Funktionen werden nicht ersetzt.
 
 ## 1. Einmalige Installation (Windows)
 
 JARVIS vorher beenden. Im Terminal im JARVIS-Ordner:
 
-\`\`\`powershell
+```powershell
 git fetch origin
 git switch --track origin/feature/stream-director-2026
 .\EINRICHTEN_STREAM.bat
 .\START_JARVIS.bat
-\`\`\`
+```
 
-Wenn bereits auf dem Feature-Branch: \`git pull --ff-only origin feature/stream-director-2026\` statt \`git switch --track\`. Nicht mit lokalen uncommitted Änderungen wechseln. Für ein Update des Basisprogramms zuvor \`EINRICHTEN.bat\` ausführen.
+Wenn bereits auf dem Feature-Branch: `git pull --ff-only origin feature/stream-director-2026` statt `git switch --track`. Nicht mit lokalen uncommitted Änderungen wechseln. Für ein Update des Basisprogramms zuvor `EINRICHTEN.bat` ausführen.
 
 ## 2. OBS vorbereiten
 
 - OBS Studio mit obs-websocket 5 benutzen.
-- \`Werkzeuge > WebSocket-Servereinstellungen\`: Server auf Port 4455, Passwort setzen. JARVIS verbindet ausschließlich mit \`127.0.0.1\`.
-- \`Einstellungen > Ausgabe > Replay Buffer\` aktivieren. Wiederholung mindestens **120 Sekunden**; OBS benötigt genügend Arbeitsspeicher.
+- `Werkzeuge > WebSocket-Servereinstellungen`: Server auf Port 4455, Passwort setzen. JARVIS verbindet ausschließlich mit `127.0.0.1`.
+- `Einstellungen > Ausgabe > Replay Buffer` aktivieren. Wiederholung mindestens **120 Sekunden**; OBS benötigt genügend Arbeitsspeicher.
 - OBS-Stream normal starten. Stream Director öffnet bzw. startet den Replay Buffer, wenn der Stream in OBS aktiv ist.
 - Laufwerk für OBS-Aufnahmen und JARVIS-Shorts möglichst nicht C: verwenden. JARVIS löscht OBS-Dateien **standardmäßig nicht**.
 
 ## 3. Twitch optional anbinden
 
-Für die Twitch-API ist ein auf deinen Kanal autorisiertes **User Access Token** und die **Client-ID derselben Twitch-Anwendung** nötig. Für EventSub-Chat-Analyse benötigt das Token \`user:read:chat\`. Die Tokens werden im lokalen JARVIS-Geheimnisspeicher, nicht im Git-Repository abgelegt. Bei Ablauf muss das Token vorerst manuell ersetzt werden; geführtes OAuth/Refresh ist noch nicht eingebaut. Twitch-Authentifizierung erfolgt nicht mit deinem Stream-Key!
+Für die Twitch-API ist ein auf deinen Kanal autorisiertes **User Access Token** und die **Client-ID derselben Twitch-Anwendung** nötig. Für EventSub-Chat-Analyse benötigt das Token `user:read:chat`. Die Tokens werden im lokalen JARVIS-Geheimnisspeicher, nicht im Git-Repository abgelegt. Bei Ablauf muss das Token vorerst manuell ersetzt werden; geführtes OAuth/Refresh ist noch nicht eingebaut. Twitch-Authentifizierung erfolgt nicht mit deinem Stream-Key!
 
 Im Control Center auf **Stream Director** gehen, Twitch-Login, Client-ID, User-Token, OBS-Passwort und Speicherort hinterlegen. **Einstellungen speichern**, **OBS testen**, **Stream Director starten**.
 
@@ -37,10 +37,12 @@ Bei fehlenden Twitch-Zugangsdaten funktioniert die lokale OBS-Audio-Erkennung tr
 - FFmpeg wertet die Audiospur lokal aus; optionale Twitch-Chat-Spitzen erhöhen die Priorität.
 - Der beste Lautstärkemoment wird als Vorschlag bewertet. Überlappende Highlights werden gedrosselt; nur bis zu einer konfigurierten Anzahl pro Stream werden verarbeitet.
 - Separate Hintergrund-Warteschlange exportiert MP4 im Hochformat mit unscharfem Hintergrund und komplett sichtbarem 16:9-Gameplay samt eingebetteter OBS-Facecam.
-- Fertige Shorts unter \`<Ausgabeordner>/shorts/<clip-id>/final.mp4\`; im Dashboard ansehen und speichern.
+- Fertige Shorts unter `<Ausgabeordner>/shorts/<clip-id>/final.mp4`; im Dashboard ansehen und speichern.
 - Der Button **Jetzt Clip sichern** speichert einen Replay auch ohne Mindestscore.
 
-**Aktueller Funktionsumfang:** akustische Highlight-Heuristik und Chataktivität, kein trainiertes Spielverständnis und keine zuverlässige automatische Erkennung von Bosskills, Mimik oder Seltenheitsgraden. Das automatische Transkribieren/Einbrennen von Untertiteln und intelligentes Facecam-Reframing sind noch nicht Teil dieser Ausbaustufe. Die Erkennung ist experimentell und muss an echte eigene Streamaufnahmen angepasst werden.
+**Aktueller Funktionsumfang:** akustische Highlight-Heuristik und Chataktivität, kein trainiertes Spielverständnis und keine zuverlässige automatische Erkennung von Bosskills, Mimik oder Seltenheitsgraden. Optional kann ein lokal installiertes **faster-whisper**-Modell (`small`) Sprache transkribieren und zeitgesteuerte Untertitel einbrennen. Im Dashboard erst nach Installation aktivieren. Intelligentes Facecam-Reframing ist noch nicht Teil dieser Ausbaustufe.
+
+Für optionale Untertitel: Im Projektordner `.venv-control\Scripts\python.exe -m pip install faster-whisper` ausführen und das Modell **vor dem Stream** einmal lokal zwischenspeichern, beispielsweise mit `WhisperModel('small', device='cpu', compute_type='int8')`. Der Stream Director lädt Modelle während des Streams nicht selbst nach. Falls Transkription fehlschlägt, bleibt das Video erhalten und eine automatische Veröffentlichung wird zur Sicherheit nicht gestartet. Die Erkennung ist experimentell und muss an echte eigene Streamaufnahmen angepasst werden.
 
 ## 5. Publishing
 
@@ -48,7 +50,7 @@ Automatische YouTube-Uploads können nach Verbindung eines bestehenden YouTube-K
 
 ## 6. Betrieb & Risiken
 
-- OBS-Replay-Originaldateien können viel Speicher belegen. Die Option \`keep_obs_replays=false\` entfernt von JARVIS gespeicherte Originale nach dem Rendering; standardmäßig eingeschaltet lassen, bis alles geprüft wurde.
+- OBS-Replay-Originaldateien können viel Speicher belegen. Die Option `keep_obs_replays=false` entfernt von JARVIS gespeicherte Originale nach dem Rendering; standardmäßig eingeschaltet lassen, bis alles geprüft wurde.
 - Wenn du in OBS Fullscreen 16:9 aufzeichnest, bleibt das Gameplay beim vertikalen Export vollständig sichtbar – es wird nicht willkürlich abgeschnitten.
 - Video-Rendering beansprucht CPU/GPU. Deshalb arbeitet es nicht im einzelnen Hauptworker, sondern im separaten Thread mit begrenzter Encoder-Threadzahl. Für schwächere PCs zunächst 720×1280.
 - Keine Dauerüberwachung, wenn JARVIS oder der PC aus sind. Twitch API und OBS brauchen aktive Verbindungen.
