@@ -118,6 +118,8 @@ class TwitchSignals:
         self.live_title = ""
         self.broadcaster_id = ""
         self.user_id = ""
+        self.last_poll = 0
+        self.last_live = None
 
     def headers(self):
         token = self.state.secret("stream_twitch_token")
@@ -130,6 +132,8 @@ class TwitchSignals:
     def live(self):
         if not self.ready():
             return None
+        if time.time() - self.last_poll < 30:
+            return self.last_live
         with httpx.Client(timeout=8, trust_env=False) as client:
             r = client.get("https://api.twitch.tv/helix/streams",
                            params={"user_login": self.config["channel"]},
@@ -139,7 +143,9 @@ class TwitchSignals:
         if data:
             self.game = data[0].get("game_name", "")
             self.live_title = data[0].get("title", "")
-        return bool(data)
+        self.last_poll = time.time()
+        self.last_live = bool(data)
+        return self.last_live
 
     def recent(self, seconds=100):
         cutoff = time.time() - seconds
@@ -232,6 +238,7 @@ class StreamDirector:
         self.last_capture = 0
         self.last_highlight_at = 0
         self.stream_clips = 0
+        self.capture_lock = threading.Lock()
         self.signals = None
 
     def config(self):
@@ -307,7 +314,11 @@ class StreamDirector:
 
     def start(self):
         if self.monitor and self.monitor.is_alive():
+            if self.stop.is_set():
+                raise ValueError('Vorherige Stream-Überwachung beendet sich noch. Erneut starten.')
             return
+        if self.editor and self.editor.is_alive():
+            raise ValueError('Vorheriger Videoschnitt läuft noch. Nach Abschluss erneut starten.')
         self.stop.clear()
         self.monitor = threading.Thread(target=self.capture_loop, daemon=True, name="jarvis-obs-capture")
         self.editor = threading.Thread(target=self.render_loop, daemon=True, name="jarvis-short-editor")
@@ -315,11 +326,11 @@ class StreamDirector:
         self.editor.start()
 
     def arm(self):
-        config = self.config()
         self.obs()  # Fast-fail if OBS cannot be reached.
+        self.start()
+        config = self.config()
         config["enabled"] = True
         self.state.set("stream_config", config)
-        self.start()
         return {"ok": True}
 
     def pause(self):
@@ -405,6 +416,14 @@ class StreamDirector:
             self.online = False
 
     def capture(self, client=None, forced=False):
+        if not self.capture_lock.acquire(blocking=False):
+            raise ValueError('Replay-Aufnahme läuft bereits.')
+        try:
+            return self._capture_locked(client, forced)
+        finally:
+            self.capture_lock.release()
+
+    def _capture_locked(self, client=None, forced=False):
         cfg = self.config()
         if not forced and self.stream_clips >= cfg["max_shorts"]:
             self.last_capture = time.time()
@@ -451,7 +470,7 @@ class StreamDirector:
         }
         ident = self.state.add("streamclip", {"status": "queued", "score": score,
                       "title": item["title"] or "Gaming Highlight", "game": item["game"],
-                      "created": item["created"], "error": "", "published_job": ""})
+                      "error": "", "published_job": ""})
         item["id"] = ident
         self.q.put_nowait(item)
         self.last_highlight_at = moment
@@ -489,6 +508,9 @@ class StreamDirector:
             except Exception as exc:
                 self.update(ident, status="failed", error=str(exc)[:500])
             finally:
+                if not self.config()['keep_obs_replays']:
+                    try:Path(item['source']).unlink(missing_ok=True)
+                    except OSError:pass
                 self.q.task_done()
 
     def update(self, ident, **changes):
