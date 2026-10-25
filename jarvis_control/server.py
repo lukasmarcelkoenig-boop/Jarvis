@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from .state import State
 from .engine import Engine
 from .trading.research import SOURCES,LEARNING
+from .stream_director import ID_PATTERN
 
 
 def create_app(root=None, worker=True):
@@ -26,6 +27,8 @@ def create_app(root=None, worker=True):
         engine.trading.armed=False
         engine.trading.stop.set()
         engine.research.stop.set()
+        engine.stream.stop.set()
+        if engine.stream.monitor:engine.stream.monitor.join(timeout=2)
         if engine.thread:engine.thread.join(timeout=3)
     app=FastAPI(lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url=None)
     app.state.store=state;app.state.engine=engine
@@ -75,7 +78,7 @@ def create_app(root=None, worker=True):
         for r in engine.projects.query('SELECT id,created FROM projects ORDER BY created DESC LIMIT 40'):
             ident=r['id'];projects.append(r|{'plan':engine.projects.load(ident),'estimate':engine.projects.estimate(ident),'scenes':engine.projects.states(ident),
                 'preview':(engine.projects.folder(ident)/'vorschau'/'final.mp4').exists(),'export':(engine.projects.folder(ident)/'export'/'final.mp4').exists()})
-        return {'version':'2.1.0-trading-demo','jobs':state.jobs(),'projects':projects,
+        return {'version':'2.2.0-stream-director','jobs':state.jobs(),'projects':projects,
             'records':{kind:state.records(kind) for kind in ('chat','task','memory','plan','account','bot','notification')},
             'settings':{k:state.get(k,v) for k,v in {'model':'qwen2.5:3b','cloud_model':'gpt-4.1-mini','cloud_daily_limit':10,'public_url':''}.items()},
             'connected':{k:bool(state.secret(k)) for k in ('openai','runway')},'windows':os.name=='nt',
@@ -235,6 +238,44 @@ def create_app(root=None, worker=True):
         path=state.root/'screenshots'/(ident+'.png')
         if not path.exists():raise HTTPException(404)
         return FileResponse(path)
+
+    @app.get('/api/stream')
+    def stream_status():
+        return engine.stream.snapshot()
+
+    @app.post('/api/stream/configure')
+    def stream_configure(p:dict):
+        return engine.stream.configure(p)
+
+    @app.post('/api/stream/start')
+    def stream_start(p:dict):
+        return engine.stream.arm()
+
+    @app.post('/api/stream/pause')
+    def stream_pause(p:dict):
+        return engine.stream.pause()
+
+    @app.post('/api/stream/check-obs')
+    def stream_check_obs(p:dict):
+        return engine.stream.check_obs()
+
+    @app.post('/api/stream/clip')
+    def stream_manual_clip(p:dict):
+        return engine.stream.manual_clip()
+
+    @app.post('/api/stream/auto-publish')
+    def stream_auto_publish(p:dict):
+        if p.get('enable') is True:
+            return engine.stream.arm_publish(p.get('confirmation'))
+        return engine.stream.disarm_publish()
+
+    @app.get('/api/stream/clips/{ident}/video')
+    def stream_video(ident:str):
+        if not ID_PATTERN.fullmatch(ident):raise HTTPException(404)
+        try:path=engine.stream.video(ident)
+        except ValueError:raise HTTPException(404)
+        return FileResponse(path, media_type='video/mp4', filename='HOLLESTAR_'+ident+'.mp4',
+                            content_disposition_type='inline')
 
     app.mount('/',StaticFiles(directory=Path(__file__).parent/'static',html=True),name='static')
     return app
