@@ -113,6 +113,7 @@ class TwitchSignals:
         self.events = deque(maxlen=500)
         self.lock = threading.Lock()
         self.thread = None
+        self.socket = None
         self.last_error = ""
         self.game = ""
         self.live_title = ""
@@ -216,6 +217,7 @@ class TwitchSignals:
                         "wss://eventsub.wss.twitch.tv/ws",
                         on_message=on_message,
                         on_error=lambda ws, err: setattr(self, "last_error", str(err)[:220]))
+                    self.socket = socket
                     socket.run_forever(ping_interval=30, ping_timeout=10)
                 except Exception as exc:
                     self.last_error = str(exc)[:220]
