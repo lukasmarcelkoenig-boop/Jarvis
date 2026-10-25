@@ -49,6 +49,9 @@ class FakeMT5:
 class TradingTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.s=State(self.tmp.name);self.m=FakeMT5();self.g=MT5Gateway(self.m);self.t=Trading(self.s,self.g)
+        # Unit tests for order idempotence must not depend on the runner's weekday.
+        # Production Trading DEFAULT still blocks demo trades on weekends.
+        self.t.configure({'weekdays_only':False})
     def tearDown(self):self.tmp.cleanup()
     def preview(self):return self.g.preview_order('XAUUSD',signal(),self.t.config(),'123@Demo',10000)
     def test_real_and_contest_accounts_rejected(self):
