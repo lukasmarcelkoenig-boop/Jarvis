@@ -27,7 +27,7 @@ DEFAULTS = {
     "obs_host": "127.0.0.1", "obs_port": 4455,
     "capture_interval": 55, "short_seconds": 40,
     "min_score": 75, "max_shorts": 3,
-    "resolution": 720, "auto_publish": False,
+    "resolution": 720, "captions": False, "auto_publish": False,
     "publish_account": "", "publish_privacy": "private",
     "output_dir": "", "keep_obs_replays": True
 }
@@ -266,7 +266,7 @@ class StreamDirector:
             if int(p["resolution"]) not in (720, 1080):
                 raise ValueError("Auflösung muss 720 oder 1080 sein.")
             next_cfg["resolution"] = int(p["resolution"])
-        for key in ("keep_obs_replays",):
+        for key in ("keep_obs_replays", "captions"):
             if key in p:
                 if type(p[key]) is not bool:
                     raise ValueError(key + " muss wahr oder falsch sein.")
@@ -471,6 +471,7 @@ class StreamDirector:
         item = {
             "source": str(source), "score": score, "peak": peak, "duration": duration,
             "seconds": cfg["short_seconds"], "resolution": cfg["resolution"],
+            "captions": cfg["captions"],
             "game": self.signals.game if self.signals else "",
             "title": self.signals.live_title if self.signals else "",
             "forced": forced, "created": time.time()
@@ -507,13 +508,22 @@ class StreamDirector:
                 video = render_vertical(item["source"], folder / "final.mp4", start,
                                         seconds, item["resolution"])
                 rendered = True
+                caption_error = ""
+                if item['captions']:
+                    try:
+                        from .stream_captions import caption_video
+                        caption_video(video, item['resolution'])
+                    except Exception as exc:
+                        caption_error = str(exc)[:240]
                 caption = "#HOLLESTAR #Gaming #Twitch #Shorts"
                 title = (item["title"] or (item["game"] + " Highlight") or "Gaming Highlight")[:95]
                 (folder / "render_info.json").write_text(
                     json.dumps({"duration": seconds, "source": "OBS Replay Buffer"}), encoding="utf-8")
-                self.update(ident, status="ready", title=title, caption=caption,
+                self.update(ident, status="caption_review" if caption_error else "ready",
+                            title=title, caption=caption, caption_error=caption_error,
                             filename=video.name, seconds=seconds)
-                self.maybe_publish(ident, video, title, caption)
+                if not caption_error:
+                    self.maybe_publish(ident, video, title, caption)
             except Exception as exc:
                 self.update(ident, status="failed", error=str(exc)[:500])
             finally:
