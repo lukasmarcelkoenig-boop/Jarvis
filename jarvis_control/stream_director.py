@@ -462,6 +462,9 @@ class StreamDirector:
         score = min(100, score + (18 if recent >= 25 else 10 if recent >= 12 else 0))
         moment = self.last_capture - max(0, duration - peak)
         if not forced and (score < cfg["min_score"] or abs(moment - self.last_highlight_at) < 80):
+            if not cfg['keep_obs_replays']:
+                try:source.unlink(missing_ok=True)
+                except OSError:pass
             return {"score": score, "accepted": False}
         if self.q.full():
             raise RuntimeError("Video-Warteschlange voll. Aufnahme wird nicht überschrieben.")
@@ -494,6 +497,7 @@ class StreamDirector:
             except queue.Empty:
                 continue
             ident = item["id"]
+            rendered = False
             try:
                 self.update(ident, status="rendering")
                 folder = self.output_root() / "shorts" / ident
@@ -502,6 +506,7 @@ class StreamDirector:
                 start = clip_start(item["peak"], item["duration"], seconds)
                 video = render_vertical(item["source"], folder / "final.mp4", start,
                                         seconds, item["resolution"])
+                rendered = True
                 caption = "#HOLLESTAR #Gaming #Twitch #Shorts"
                 title = (item["title"] or (item["game"] + " Highlight") or "Gaming Highlight")[:95]
                 (folder / "render_info.json").write_text(
@@ -512,7 +517,7 @@ class StreamDirector:
             except Exception as exc:
                 self.update(ident, status="failed", error=str(exc)[:500])
             finally:
-                if not self.config()['keep_obs_replays']:
+                if rendered and not self.config()['keep_obs_replays']:
                     try:Path(item['source']).unlink(missing_ok=True)
                     except OSError:pass
                 self.q.task_done()
