@@ -327,10 +327,14 @@ class StreamDirector:
 
     def arm(self):
         self.obs()  # Fast-fail if OBS cannot be reached.
-        self.start()
+        if self.monitor and self.monitor.is_alive() and self.stop.is_set():
+            raise ValueError("Vorherige Stream-Überwachung beendet sich noch.")
+        if self.editor and self.editor.is_alive() and self.stop.is_set():
+            raise ValueError("Vorheriger Videoschnitt beendet sich noch.")
         config = self.config()
         config["enabled"] = True
         self.state.set("stream_config", config)
+        self.start()
         return {"ok": True}
 
     def pause(self):
