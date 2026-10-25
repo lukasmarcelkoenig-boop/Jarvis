@@ -345,6 +345,8 @@ class StreamDirector:
         config["auto_publish"] = False
         self.state.set("stream_config", config)
         self.stop.set()
+        if self.signals and self.signals.socket:
+            self.signals.socket.close()
         return {"ok": True}
 
     def arm_publish(self, confirmation):
